@@ -19,8 +19,8 @@ public class DiffServlet extends HttpServlet {
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		String input1 = request.getParameter("input1");
 		String input2 = request.getParameter("input2");
-		int context = 3;
-		//int context = Integer.parseInt(request.getParameter("context"));
+		//int context = 3;
+		int context = Integer.parseInt(request.getParameter("context"));
 		JSONArray array = new JSONArray();
 		Object[] obj1 = null, obj2 = null;
 		try {

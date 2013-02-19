@@ -33,13 +33,13 @@ input,select {
 }
 
 .content a {
-	background-color: gray;
+	background-color: AppWorkspace;
     border-radius: 5px 5px 5px 5px;
     color: white;
     font-family: calibri;
-    font-size: 25px;
+    font-size: 20px;
     margin-left: 5px;
-    padding: 0px;
+    padding: 2px;
 	
 }
 

@@ -2,6 +2,17 @@ var json1, json2, context;
 var output = '';
 var before_context = true;
 var reduced_context = false;
+var last_diff_deleted=false;
+function init() {
+	output = '';
+	before_context = true;
+	reduced_context = false;
+	next = 0, previous = 0, property = 0, index = 0;
+	hide_expand_start = false;
+	expand_from = -1, expand_to = 0;
+	last_diff_deleted=false;
+	
+}
 function callServlet() {
 	var input1 = document.getElementById('diff_file1_box').value;
 	var input2 = document.getElementById('diff_file2_box').value;
@@ -22,6 +33,7 @@ function ajax() {
 	xmlhttp.onreadystatechange = function() {
 		if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
 			output = '';
+			init();
 			printResult(xmlhttp.responseText);
 		}
 	};
@@ -34,33 +46,43 @@ function ajax() {
 }
 var next = 0, previous = 0, property = 0, index = 0;
 var hide_expand_start = false;
-var expand_from = 0, expand_to = 0;
+var expand_from = -1, expand_to = 0;
 function printResult(result) {
 	var obj = JSON.parse(result);
 	reduced_context = false;
-	startContext(obj);
+	start(obj);
 	// expand lines at end--no change
 	if (property > 0) {//atleast one change
 		index++;
+		if(!last_diff_deleted) {
 		if(expand_from+1< obj[property - 1]['json2'].length)
 		output += "<a id='div" + index+ "'onclick = \"javascript:blocking('next_div" + index+ "');changeText(id)\">-</a>"
-				+ obj[property - 1]['json2'][expand_from + 1] + "<strong><br>";
+				+ obj[property - 1]['json2'][expand_from + 1] + "<br>";
 		output += "<div id='next_div" + index + "'>";
 		for ( var j = expand_from + 2; j < obj[property - 1]['json2'].length; j++)
 			output += obj[property - 1]['json2'][j] + "<br>";
-		output += "</div></strong>";
+		output += "</div>";
+		} else {
+			if(expand_from+1< obj[property - 1]['json1'].length)
+				output += "<a id='div" + index+ "'onclick = \"javascript:blocking('next_div" + index+ "');changeText(id)\">-</a>"
+						+ obj[property - 1]['json1'][expand_from + 1] + "<br>";
+				output += "<div id='next_div" + index + "'>";
+				for ( var j = expand_from + 2; j < obj[property - 1]['json1'].length; j++)
+					output += obj[property - 1]['json1'][j] + "<br>";
+				output += "</div>";
+		}
 	} else { //no changes
 		json1 = JSON.parse(json1);
 		output += "<a id='div" + index+ "' onclick = \"javascript:blocking('next_div" + index+ "');changeText(id)\">-</a>"
-				+ 'NO CHANGE....TWO FILES ARE EQUAL..' + "<strong><br>";
+				+ 'NO CHANGE....TWO FILES ARE EQUAL..' + "<br>";
 		output += "<div id='next_div" + index + "'>";
 		for ( var i = 0; i < json1.length; i++)
 			output += json1[i] + '<br>';
-		output += "</div></strong>";
+		output += "</div>";
 	}
 	document.getElementById('diff_output_box').innerHTML = output;
 }
-function startContext(obj){
+function start(obj){
 	for (property = 0; property < obj.length; property++) {
 		expand_to = parseInt(obj[property]['first1']);
 		// expand_lines at starting
@@ -68,7 +90,7 @@ function startContext(obj){
 			if (!hide_expand_start) {
 				index++;
 				output += "<a id='div" + index+ "' onclick = \"javascript:blocking('next_div" + index+ "');changeText(id)\">-</a>"
-						+ obj[property]['json2'][expand_from + 1]+ "<strong><br>";
+						+ obj[property]['json2'][expand_from + 1]+ "<br>";
 				output += "<div id='next_div" + index + "'>";
 				for ( var j = expand_from + 2; j < expand_to - context; j++)
 					output += obj[property]['json2'][j] + "<br>";
@@ -87,81 +109,30 @@ function startContext(obj){
 		previous = parseInt(obj[property]['last1']);
 	}
 }
-function decideDelta(result) {
-	if (result['size1'] == 0) {
-		addDelta(result);
-	} else if (result['size2'] == 0) {
-		deleteDelta(result);
-	} else {
-		changeDelta(result);
-	}
-}
-function changeDelta(result) {
-	// context lines
-	printContext(result);
-	// diff lines--no change
-	for ( var i = parseInt(result['first1']); i <= parseInt(result['last1']); i++)
-		output += "<font color=\"red\"> < " + result['json1'][i]+ " </font> </br>";
-	output += "-------</br>";
-	for ( var i = parseInt(result['first2']); i <= parseInt(result['last2']); i++)
-		output += "<font color=\"green\"> > " + result['json2'][i]+ "</font></br>";
-	// context
-	if (parseInt(result['last2']) + parseInt(context) < result['json2'].length) {
-		var i = parseInt(result['last2']) + 1;
-		if ((next == 0) || (next - context > i)) { // print context lines
-			for (i = parseInt(result['last2']) + 1; i <= parseInt(result['last2'])+ context; i++) {
-				output += result['json2'][i] + "</br>";
-			}
-			if (next - context <= i) {
-				reduced_context = true;
-				hide_expand_start = true;
-			}
-		} else { // print reduced context lines
-			for (i = parseInt(result['last2']) + 1; i < next; i++) {
-				output += result['json2'][i] + "</br>";
-				before_context = false;
-				hide_expand_start = true;
-			}
-		}
-	}
-}
-function printContext(result){
+function printContext1(result){
 	if (before_context) {
 		if (reduced_context) {
 			for ( var i = previous + context + 1; i < result['first1']; i++)
 				output += result['json1'][i] + "</br>";
 		} else {
 			if ((parseInt(result['first1']) - context) > 0) {
-				for ( var i = parseInt(result['first1']) - context; i < parseInt(result['first1']); i++) {
+				for ( var i = parseInt(result['first1']) - context; i < parseInt(result['first1']); i++)
 					output += result['json1'][i] + "</br>";
-				}
 			} else {
-				for ( var i = 0; i < parseInt(result['first1']); i++) {
+				for ( var i = 0; i < parseInt(result['first1']); i++) 
 					output += result['json1'][i] + "</br>";
-				}
 			}
 		}
 	}
 	before_context = true;
 	reduced_context = false;
 }
-function addDelta(result) {
-	// context lines
-	printContext(result);
-	expand_from=parseInt(result['last2']) + context;
-	// diff lines--no change
-	for ( var i = parseInt(result['first2']); i <= parseInt(result['last2']); i++) {
-		output += "<font color=\"green\"> + " + result['json2'][i]
-				+ "</font></br>";
-	}
-	// context lines
+function printContext2(result){
 	if (parseInt(result['last2']) + parseInt(context) < result['json2'].length) {
 		var i = parseInt(result['last2']) + 1;
 		if ((next == 0) || (next - context > i)) { // print context lines
-			for (i = parseInt(result['last2']) + 1; i <= parseInt(result['last2'])
-					+ context; i++) {
+			for (i = parseInt(result['last2']) + 1; i <= parseInt(result['last2'])+ context; i++) 
 				output += result['json2'][i] + "</br>";
-			}
 			if (next - context <= i) {
 				reduced_context = true;
 				hide_expand_start = true;
@@ -174,21 +145,16 @@ function addDelta(result) {
 			}
 		}
 	}
+	else 
+		for (i = parseInt(result['last2']) + 1; i < parseInt(result['json2'].length); i++) 
+			output += result['json2'][i] + "</br>";
 }
-function deleteDelta(result) {
-	// context lines
-	printContext(result);
-	// diff lines--no change
-	for ( var i = parseInt(result['first1']); i <= parseInt(result['last1']); i++) {
-		output += "<font color=\"red\"> - " + result['json1'][i]+ " </font> </br>";
-	}
-	// context lines
-	if (parseInt(result['last1']) + parseInt(context) < result['json2'].length) {
+function printContext3(result){
+	if (parseInt(result['last1']) + parseInt(context) < result['json1'].length) {
 		var i = parseInt(result['last1']) + 1;
 		if ((next == 0) || (next - context > i)) { // print context lines
-			for (i = parseInt(result['last1']) + 1; i <= parseInt(result['last1'])+ context; i++) {
+			for (i = parseInt(result['last1']) + 1; i <= parseInt(result['last1'])+ context; i++) 
 				output += result['json1'][i] + "</br>";
-			}
 			if (next - context <= i) {
 				reduced_context = true;
 				hide_expand_start = true;
@@ -201,9 +167,55 @@ function deleteDelta(result) {
 			}
 		}
 	}
-	else
-		hide_expand_start = true;
-		
+	else 
+		for (i = parseInt(result['last1']) + 1; i < parseInt(result['json1'].length); i++) 
+			output += result['json1'][i] + "</br>";
+}
+function decideDelta(result) {
+	if (result['size1'] == 0) {
+		last_diff_deleted=false;
+		addDelta(result);
+	} else if (result['size2'] == 0) {
+		last_diff_deleted=false;
+		deleteDelta(result);
+	} else {
+		last_diff_deleted=true;
+		changeDelta(result);
+	}
+}
+function changeDelta(result) {
+	// context lines
+	printContext1(result);
+	expand_from=parseInt(result['last1']) + context;
+	// diff lines--no change
+	for ( var i = parseInt(result['first1']); i <= parseInt(result['last1']); i++)
+		output += "<font color=\"red\"> < " + result['json1'][i]+ " </font> </br>";
+	output += "-------</br>";
+	for ( var i = parseInt(result['first2']); i <= parseInt(result['last2']); i++)
+		output += "<font color=\"green\"> > " + result['json2'][i]+ "</font></br>";
+	// context lines
+	printContext2(result);
+	
+}
+function addDelta(result) {
+	// context lines
+	printContext1(result);
+	expand_from=parseInt(result['last2']) + context;
+	// diff lines--no change
+	for ( var i = parseInt(result['first2']); i <= parseInt(result['last2']); i++) 
+		output += "<font color=\"green\"> + " + result['json2'][i]+ "</font></br>";
+	// context lines
+	printContext2(result);
+}
+function deleteDelta(result) {
+	// context lines
+	printContext1(result);
+	expand_from=parseInt(result['last1']) + context;
+	// diff lines--no change
+	for ( var i = parseInt(result['first1']); i <= parseInt(result['last1']); i++) 
+		output += "<font color=\"red\"> - " + result['json1'][i]+ " </font> </br>";
+	// context lines
+	printContext3(result);
 }
 function blocking(nr) {
 	displayNew = (document.getElementById(nr).style.display == 'none') ? 'block'
